@@ -186,7 +186,7 @@ Branch 란?
   - `git merge 합칠 브랜치 이름`: 분기된 브랜치들을 하나로 합치는 명령어
     - merge 3가지 유형
       - fast forward![alt text](./images/image-2.png)![alt text](./images/image-3.png)
-      - 3-Way Merge![![alt text](./images/image-5.png)](image-4.png)![alt text](./images/image-6.png)
+      - 3-Way Merge![![alt text](./images/image-5.png)](./images/image-4.png)![alt text](./images/image-6.png)
       - Merge Conflict  
         - 충돌 생기는 부분에서 사용자가 직접 내용을 선택해서 해결
 - Git Workflow 개념
