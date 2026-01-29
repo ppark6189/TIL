@@ -185,21 +185,21 @@ Branch 란?
   - `git switch`: 현재 브랜치에서 다른 브랜치로 HEAD를 이동시키는 명령어(HEAD란, 현재 브랜치를 가르키는 포인터)
   - `git merge 합칠 브랜치 이름`: 분기된 브랜치들을 하나로 합치는 명령어
     - merge 3가지 유형
-      - fast forward![alt text](image-2.png)![alt text](image-3.png)
-      - 3-Way Merge![![alt text](image-5.png)](image-4.png)![alt text](image-6.png)
+      - fast forward![alt text](./images/image-2.png)![alt text](./images/image-3.png)
+      - 3-Way Merge![![alt text](./images/image-5.png)](image-4.png)![alt text](./images/image-6.png)
       - Merge Conflict  
         - 충돌 생기는 부분에서 사용자가 직접 내용을 선택해서 해결
 - Git Workflow 개념
   -  작업흐름
-    1. 소유권이 있는 원격 저장소를 로컬 저장소로 clone 받습니다.![alt text](image-7.png) 
-    2. 사용자는 자신이 작업할 기능에 대한 **브랜치를 생성**하고, 그 안에서 **기능을 구현** 합니다.![alt text](image-9.png)
-    3. 기능 구현이 완료되면, 원격 저장소에 해당 브랜치를 **push** 합니다. ![alt text](image-10.png)
+    1. 소유권이 있는 원격 저장소를 로컬 저장소로 clone 받습니다.![alt text](./images/image-7.png) 
+    2. 사용자는 자신이 작업할 기능에 대한 **브랜치를 생성**하고, 그 안에서 **기능을 구현** 합니다.![alt text](./images/image-9.png)
+    3. 기능 구현이 완료되면, 원격 저장소에 해당 브랜치를 **push** 합니다. ![alt text](./images/image-10.png)
     4. 원격 저장소에는 main과 각 기능의 브랜치가 반영되었습니다.
-    5. **pull request**를 통해 브랜치를 main에 반영해달라는 요청을 보냅니다. ![alt text](image-11.png)
-    6. 병합이 완료되면 원격 저장소에서 병합이 완료된 브랜치는 불필요하므로 삭제합니다.![alt text](image-12.png)
-    7. main에 브랜치가 병합되면 , 각 사용자는 로컬의 브랜치로 이동합니다.(이전 변경 내용들은 브랜치에서 add 후 이동) ![alt text](image-13.png)
-    8. 병합으로 인해 변경된 원격 저장소의 main 내용을 로컬에 받아옵니다.![alt text](image-14.png)
-    9. 병합이 완료된 main의 내용을 받았으므로,기존 로컬브랜치 삭제.![alt text](image-15.png)
+    5. **pull request**를 통해 브랜치를 main에 반영해달라는 요청을 보냅니다. ![alt text](./images/image-11.png)
+    6. 병합이 완료되면 원격 저장소에서 병합이 완료된 브랜치는 불필요하므로 삭제합니다.![alt text](./images/image-12.png)
+    7. main에 브랜치가 병합되면 , 각 사용자는 로컬의 브랜치로 이동합니다.(이전 변경 내용들은 브랜치에서 add 후 이동) ![alt text](./images/image-13.png)
+    8. 병합으로 인해 변경된 원격 저장소의 main 내용을 로컬에 받아옵니다.![alt text](./images/image-14.png)
+    9. 병합이 완료된 main의 내용을 받았으므로,기존 로컬브랜치 삭제.![alt text](./images/image-15.png)
     10. 한사이클 종료.
 
 
