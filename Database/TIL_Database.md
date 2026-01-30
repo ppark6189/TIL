@@ -653,3 +653,281 @@ HAVING은
 - 실행 순서(FROM → WHERE → GROUP BY → HAVING → SELECT)를 이해해야  
   별칭 오류, 필터링 오류, 지표 해석 오류를 예방할 수 있다.
 ---
+## 📅 2026-01-30
+
+## 📌 ORDER BY, JOIN, 다중 JOIN 실습
+
+## 📌 ORDER BY로 결과 정렬하기
+
+### ORDER BY의 역할
+- 조회 결과를 **특정 컬럼 기준으로 정렬**
+- 분석 결과를 해석 가능한 형태로 만드는 단계
+
+---
+
+### 인구 수 기준 내림차순 정렬
+```sql
+SELECT
+    ct.`Name` AS 이름,
+    ct.`District` AS 지역,
+    ct.`Population` AS 인구수
+FROM city ct
+ORDER BY ct.`Population` DESC;
+````
+
+* `DESC` : 내림차순
+* 기본값은 오름차순(`ASC`)
+
+📌
+ORDER BY는 **데이터를 바꾸지 않고, 보여주는 순서만 바꾼다.**
+
+---
+
+### 여러 컬럼 기준 정렬
+
+```sql
+SELECT
+    ct.`CountryCode`,
+    ct.`Population` AS 총인구수
+FROM city ct
+WHERE ct.`CountryCode` IN ('KOR', 'JPN', 'CHN')
+ORDER BY ct.`CountryCode`, 총인구수 DESC;
+```
+
+* 국가 코드로 1차 정렬
+* 국가 내부에서는 인구 기준 내림차순 정렬
+
+📌
+다중 정렬은
+**“어떤 기준이 우선인가?”** 를 명확히 드러낸다.
+
+---
+
+### NULL 값 정렬
+
+```sql
+SELECT *
+FROM country co
+ORDER BY co.`IndepYear`;
+```
+
+* NULL은 가장 작은 값으로 인식
+
+```sql
+SELECT *
+FROM country co
+WHERE co.`IndepYear` IS NOT NULL
+  AND co.`IndepYear` > 0
+ORDER BY co.`IndepYear`;
+```
+
+📌 분석가 관점 포인트:
+
+* NULL 포함 여부에 따라
+  결과 해석이 완전히 달라질 수 있다.
+* 정렬 전에 **NULL 처리 여부를 반드시 판단**해야 한다.
+
+---
+
+### LIMIT / OFFSET
+
+```sql
+SELECT *
+FROM city ct
+ORDER BY ct.`Population` DESC
+LIMIT 5 OFFSET 5;
+```
+
+* 6번째 행부터 5개 출력
+
+📌
+LIMIT 결과는
+**전체 분포가 아닌 일부 샘플**일 수 있음을 항상 인지해야 한다.
+
+---
+
+## 📌 JOIN 기본 실습
+
+### INNER JOIN
+
+* 양쪽 테이블에 **모두 존재하는 데이터만 조회**
+* 교집합 개념
+
+```sql
+SELECT
+    city.`Name` AS 도시명,
+    country.`Name` AS 국가명,
+    country.`Continent` AS 대륙명
+FROM city
+INNER JOIN country
+    ON city.`CountryCode` = country.`Code`;
+```
+
+📌
+INNER JOIN은
+“양쪽 데이터가 반드시 존재한다”는 가정을 포함한다.
+기준 테이블 분석 시 데이터 누락 위험이 있다.
+
+---
+
+### LEFT JOIN과 결측 발생
+
+```sql
+SELECT
+    co.`Name` AS 나라명,
+    ct.`Name` AS 수도명
+FROM country co
+LEFT JOIN city ct
+    ON co.`Capital` = ct.`ID`
+WHERE ct.`Name` IS NULL;
+```
+
+* 수도 정보가 없는 국가 확인
+* LEFT JOIN은 **기준 테이블(co)을 보존**
+
+📌
+LEFT JOIN에서 발생하는 NULL은
+**데이터 오류가 아니라 구조적 결과**다.
+
+---
+
+## 📌 JOIN 실무 예제 (sakila)
+
+### 모든 고객의 대여 이력 조회
+
+```sql
+SELECT
+    c.first_name AS 성,
+    c.last_name AS 이름,
+    r.rental_date AS 대여일시,
+    r.return_date AS 반납일시
+FROM customer c
+LEFT JOIN rental r
+    ON c.customer_id = r.customer_id;
+```
+
+* “모든 고객”이 기준이므로 LEFT JOIN
+
+---
+
+### 아직 반납하지 않은 대여 이력
+
+```sql
+SELECT
+    c.first_name AS 성,
+    c.last_name AS 이름,
+    r.rental_date AS 대여일시,
+    r.return_date AS 반납일시
+FROM customer c
+LEFT JOIN rental r
+    ON c.customer_id = r.customer_id
+WHERE r.return_date IS NULL;
+```
+
+📌 분석가 관점 포인트:
+
+* LEFT JOIN 후 WHERE 조건은
+  **결과를 다시 INNER JOIN처럼 만들 수 있음**
+* 기준 테이블이 무엇인지 항상 재확인해야 한다.
+
+---
+
+## 📌 3개 이상의 테이블 JOIN
+
+### world 데이터베이스 예제
+
+```sql
+SELECT
+    co.`Name` AS 국가명,
+    ct.`Name` AS 수도명,
+    cl.`Language` AS 언어
+FROM country co
+INNER JOIN city ct
+    ON co.`Capital` = ct.`ID`
+INNER JOIN countrylanguage cl
+    ON cl.`CountryCode` = co.`Code`;
+```
+
+* 언어 수만큼 행이 증가
+* **중계 테이블 성격** 확인 가능
+
+---
+
+### 공식 언어만 필터링
+
+```sql
+SELECT
+    co.`Name` AS 국가명,
+    ct.`Name` AS 수도명,
+    cl.`Language` AS 언어
+FROM country co
+INNER JOIN city ct
+    ON co.`Capital` = ct.`ID`
+INNER JOIN countrylanguage cl
+    ON cl.`CountryCode` = co.`Code`
+WHERE cl.IsOfficial = 'T';
+```
+
+📌
+중계 테이블을 그대로 JOIN하면
+행이 증식되기 쉽다.
+→ **필터링 또는 집계 후 JOIN 고려**
+
+---
+
+### M:N 관계 + 중계 테이블 (sakila)
+
+```sql
+SELECT
+    a.first_name AS 이름,
+    a.last_name AS 성,
+    f.title AS 영화이름
+FROM film f
+INNER JOIN film_actor fa
+    ON f.film_id = fa.film_id
+INNER JOIN actor a
+    ON a.actor_id = fa.actor_id
+ORDER BY 이름, 성;
+```
+
+---
+
+### USING 구문
+
+```sql
+SELECT
+    a.first_name,
+    a.last_name,
+    f.title
+FROM actor a
+INNER JOIN film_actor fa
+    USING(actor_id)
+INNER JOIN film f
+    USING(film_id);
+```
+
+📌
+USING은
+컬럼명이 동일할 때 가독성을 높여준다.
+다만, **조인 키가 명확히 같을 때만 사용**해야 한다.
+
+---
+
+### 오늘의 핵심 정리
+
+* ORDER BY는 단순 정렬이 아니라
+  **분석 결과를 해석 가능한 형태로 만드는 단계**다.
+* LIMIT가 포함된 결과는
+  전체 분포가 아닌 일부 샘플일 수 있다.
+* JOIN은 테이블을 붙이는 문법이 아니라
+  **데이터 모델을 해석하고 분석용 테이블을 만드는 과정**이다.
+* LEFT JOIN은 실무 분석에서 가장 중요한 JOIN 방식이다.
+* 3개 이상의 테이블 JOIN에서는
+  **첫 FROM 테이블이 분석 기준(Granularity)** 을 결정한다.
+* 두 엔터티 사이에서
+  “언제 / 어떻게 / 어떤 상태로”라는 질문이 생기면
+  그 관계는 반드시 **중계 테이블**로 저장해야 한다.
+* 중계 테이블은
+  그대로 JOIN하지 말고
+  **집계 → 의미 단위 고정 → JOIN** 순서를 항상 고려해야 한다.
+---
