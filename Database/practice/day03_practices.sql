@@ -85,7 +85,7 @@ show tables;
 desc city;
 
 -- 각 국가별 도시가 10개 이상인 국가의 CountryCode, 도시 수를 조회하시오.
-select ct.`CountryCode` 도시코드, count(*) 도시수
+select ct.`CountryCode` 국가코드, count(*) 도시수
 from city ct
 GROUP BY ct.`CountryCode`
 HAVING count(*)>=10;
@@ -95,14 +95,14 @@ SELECT c.`District` 지역, count(*) 도시수, sum(c.`Population`) 총인구
 from city  c
 GROUP BY c.`District`
 HAVING avg(c.`Population`)>=1000000
-    and count(*) >= 3
+    and 도시수 >= 3;
 
 -- 아시아 대륙의 국가들 중에서, Region별 평균 GNP가 1000 이상인 Region,  평균 GNP를 조회하시오
 SELECT co.`Region` 지역, avg(co.`GNP`) 평균GNP
 from country as co
 where co.`Continent` = 'Asia'
 GROUP BY co.`Region`
-HAVING avg(co.`GNP`)>1000;
+HAVING 평균GNP>1000;
 
 -- 독립년도가 1900년 이후인 국가들 중에서, 대륙별 평균 기대수명이 70세 이상인 Continent, 평균 기대수명을 조회하시오.
 SELECT co.`Continent` 대륙,
