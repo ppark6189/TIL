@@ -931,3 +931,252 @@ USING은
   그대로 JOIN하지 말고
   **집계 → 의미 단위 고정 → JOIN** 순서를 항상 고려해야 한다.
 ---
+
+## 📅 2026-01-31
+## 📌 특수 JOIN, VIEW, 서브쿼리 실습
+## 📌 CROSS JOIN
+
+### CROSS JOIN이란?
+- 조인 조건 없이 **모든 경우의 수를 만들어내는 JOIN**
+- 두 테이블의 모든 행을 서로 하나씩 짝지어 **가능한 모든 조합 생성**
+
+```text
+테이블 A (n행)
+× 테이블 B (m행)
+→ 결과 n × m 행
+````
+
+```sql
+SELECT *
+FROM table_a
+CROSS JOIN table_b;
+```
+
+📌
+CROSS JOIN은 의도하지 않으면 거의 항상 **사고의 원인**이 된다.
+모든 조합이 필요한 경우에만 명확한 목적을 가지고 사용해야 한다.
+
+---
+
+## 📌 SELF JOIN
+
+### SELF JOIN이란?
+
+* 같은 테이블을 **자기 자신과 JOIN**
+* 같은 종류의 데이터끼리 **관계 비교**가 필요할 때 사용
+
+---
+
+### 실습 예제 — 같은 대륙에 속한 국가 비교
+
+```sql
+SELECT 
+    c2.`Name` AS 국가명,
+    c1.`Continent` AS 대륙명
+FROM country AS c1
+JOIN country AS c2
+    ON c1.`Continent` = c2.`Continent`
+WHERE 
+    c1.`Name` = 'Germany'
+    AND c2.`Name` <> 'Germany';
+```
+
+📌 분석가 관점 포인트:
+
+* SELF JOIN은
+  **데이터 구조를 머릿속에 그릴 수 있어야** 해석 가능하다.
+* Alias가 곧 **역할 분리**다.
+
+---
+
+## 📌 실무에서 JOIN이 어려워지는 순간
+
+JOIN 문법 자체보다
+**조건이 하나씩 붙는 순간부터 난이도가 급격히 증가**한다.
+
+---
+
+### JOIN이 어려워지는 대표적인 상황
+
+* 중계 테이블이 단순 연결이 아니라 **기록(Log)** 이 되는 순간
+* 최신 데이터만 연결해야 하는 순간
+* 상태(Status)가 붙는 순간
+* JOIN과 집계(GROUP BY)가 섞이는 순간
+
+📌
+이 시점부터는
+**문법이 아니라 사고 순서가 결과를 결정**한다.
+
+---
+
+## 📌 VIEW의 필요성
+
+### VIEW란?
+
+* 복잡한 쿼리를 **재사용하기 위한 가상 테이블**
+* 데이터를 저장하지 않고, **쿼리 자체를 저장**
+
+---
+
+### 실습 예제 — 아시아 국가 VIEW 생성
+
+```sql
+CREATE VIEW asia_countries_view AS
+SELECT
+    co.`Code` AS 국가코드,
+    co.`Name` AS 국가명,
+    ct.`Name` AS 수도명,
+    co.`Population` AS 인구수,
+    co.`GNP` AS GNP
+FROM country AS co
+JOIN city AS ct
+    ON co.`Capital` = ct.`ID`
+WHERE co.`Continent` = 'Asia';
+```
+
+```sql
+SELECT *
+FROM asia_countries_view
+WHERE 인구수 < 100000000
+ORDER BY 인구수 DESC
+LIMIT 10;
+```
+
+---
+
+### VIEW에 대한 핵심 사고
+
+* VIEW는 **저장이 아니라 재실행**
+* 원본 테이블이 깨지면 VIEW도 깨질 수 있음
+
+📌 분석가 관점 포인트:
+
+* VIEW는 테이블이 아니라
+  **“고정된 기준으로 보게 만드는 인터페이스”**
+* 핵심 목적
+
+  * JOIN 반복 단순화
+  * 기준 정의 고정
+  * 데이터 노출 제어
+
+---
+
+## 📌 서브쿼리 (Subquery)
+
+### 서브쿼리란?
+
+* SQL 안에 포함된 또 다른 SELECT
+* JOIN 대신
+  **기준을 먼저 만들기 위해 사용**
+
+📌
+JOIN은 데이터를 붙이는 도구,
+서브쿼리는 **기준을 만드는 도구**다.
+
+---
+
+## 📌 비연관 서브쿼리
+
+### 특징
+
+* 메인 쿼리와 독립적으로 실행
+* 고정된 결과 집합을 기준으로 전체를 필터링
+
+---
+
+### 실습 예제 — 평균보다 비싼 영화
+
+```sql
+SELECT f.title, f.rental_rate
+FROM film f
+WHERE f.rental_rate > (
+    SELECT AVG(rental_rate)
+    FROM film
+);
+```
+
+📌
+서브쿼리는 **“기준값 하나”** 를 만들 때 매우 직관적이다.
+
+---
+
+## 📌 연관 서브쿼리
+
+### 특징
+
+* 메인 쿼리의 **각 행마다**
+* 서브쿼리가 **동적으로 실행**
+
+---
+
+### 실습 예제 — 고객별 최근 대여일
+
+```sql
+SELECT
+    cu.first_name,
+    cu.last_name,
+    (
+        SELECT MAX(r.rental_date)
+        FROM rental r
+        WHERE r.customer_id = cu.customer_id
+    ) AS 최근대여일
+FROM customer cu;
+```
+
+📌 분석가 관점 포인트:
+
+* 연관 서브쿼리는
+  **행 단위 기준이 바뀌는 경우**에 가장 명확하다.
+* JOIN + GROUP BY로 대체 가능하지만
+  의도 전달은 서브쿼리가 더 직관적인 경우가 많다.
+
+---
+
+## 📌 EXISTS
+
+### EXISTS의 핵심
+
+* 실제 데이터 값은 중요하지 않음
+* **존재 여부(있다 / 없다)** 만 판단
+
+---
+
+### 실습 예제 — Horror 영화 대여 경험 고객
+
+```sql
+SELECT 
+    cu.first_name,
+    cu.last_name
+FROM customer cu
+WHERE EXISTS (
+    SELECT 1
+    FROM rental r
+    JOIN inventory i ON r.inventory_id = i.inventory_id
+    JOIN film f ON i.film_id = f.film_id
+    JOIN film_category fc ON f.film_id = fc.film_id
+    JOIN category c ON fc.category_id = c.category_id
+    WHERE c.name = 'Horror'
+      AND r.customer_id = cu.customer_id
+);
+```
+
+📌
+EXISTS는
+값을 가져오는 쿼리가 아니라
+**조건 충족 여부를 판단하는 논리 연산**이다.
+
+---
+
+### 오늘의 핵심 정리
+
+* CROSS JOIN은 모든 조합을 만드는 강력하지만 위험한 JOIN이다.
+* SELF JOIN은 같은 테이블 내 역할 비교를 위한 구조다.
+* JOIN이 어려워지는 순간은
+  **기록, 상태, 최신 조건, 집계가 붙는 시점**이다.
+* VIEW는 데이터를 저장하는 것이 아니라
+  **기준을 고정하고 재사용하기 위한 인터페이스**다.
+* 서브쿼리는 JOIN의 대체재가 아니라
+  **기준을 명확히 드러내는 도구**다.
+* 연관 서브쿼리와 EXISTS는
+  **행 단위 판단이 필요할 때 가장 명확한 선택**이다.
+---
