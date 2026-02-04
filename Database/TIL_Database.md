@@ -1754,8 +1754,7 @@ ON cu.customer_id = d.customer_id;
 - 구조  
   ```sql
   IF(조건, 참일 때 값, 거짓일 때 값)
-````
-
+```
 ```sql
 USE world;
 
