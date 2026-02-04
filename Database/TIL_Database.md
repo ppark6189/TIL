@@ -932,7 +932,7 @@ USING은
   **집계 → 의미 단위 고정 → JOIN** 순서를 항상 고려해야 한다.
 ---
 
-## 📅 2026-01-31
+## 📅 2026-02-02
 ## 📌 특수 JOIN, VIEW, 서브쿼리 실습
 ## 📌 CROSS JOIN
 
@@ -1180,3 +1180,582 @@ EXISTS는
 * 연관 서브쿼리와 EXISTS는
   **행 단위 판단이 필요할 때 가장 명확한 선택**이다.
 ---
+## 📅 2026-02-03
+## 🧠 오늘 학습 내용 – 데이터 분석 관점 요약
+
+* 오늘의 핵심은 **“같은 문제를 어떻게 더 읽기 좋은 구조로 풀 것인가”**
+* CTE는 결과를 바꾸는 도구가 아니라
+  **사고 단계를 드러내는 도구**
+* 데이터 타입과 함수는
+  → 단순 문법이 아니라 **지표 왜곡을 막는 안전장치**
+* 실무 SQL은
+
+  * “돌아가는 쿼리”가 아니라
+  * **의도가 명확한 쿼리**가 목표
+
+## 📌 CTE · 데이터 타입 · 함수 · 실습
+
+---
+
+## 📌 CTE (Common Table Expression)
+
+### 같은 문제, 두 가지 접근
+
+#### 1️⃣ 서브쿼리로 해결
+
+```sql
+SELECT co1.Continent, co1.Name, co1.Population
+FROM country AS co1
+JOIN (
+    SELECT co2.Continent, MAX(co2.Population) AS max_pop
+    FROM country AS co2
+    GROUP BY co2.Continent
+) AS cmp
+ON cmp.Continent = co1.Continent
+AND cmp.max_pop = co1.Population;
+```
+
+* 결과는 맞음
+* 하지만
+
+  * `MAX(Population)`이 언제 계산되는지
+  * 무엇을 기준으로 비교하는지
+    한눈에 보이지 않음
+
+---
+
+#### 2️⃣ CTE로 문제 분해
+
+```sql
+WITH cmp AS (
+    SELECT Continent, MAX(Population) AS max_pop
+    FROM country
+    GROUP BY Continent
+)
+SELECT c.Continent, c.Name, c.Population
+FROM country c
+JOIN cmp
+ON cmp.Continent = c.Continent
+AND cmp.max_pop = c.Population;
+```
+
+📌 데이터 분석 관점 포인트:
+
+* 문제를 **2단계로 나눔**
+
+  1. 대륙별 최대 인구 계산
+  2. 해당 값을 가진 국가 선택
+* SQL이 **사고 흐름 그대로 읽히기 시작**
+
+---
+
+## 📌 데이터 타입 (Data Types)
+
+### 암시적 형변환
+
+```sql
+SELECT "1" + 403;
+SELECT cat.category_id + cat.name
+FROM category AS cat
+LIMIT 4;
+```
+
+* DB가 자동으로 형변환 시도
+* 의도하지 않은 결과 발생 가능
+
+---
+
+### 명시적 형변환 (CAST)
+
+```sql
+SELECT CONCAT(CAST(cat.category_id AS CHAR), '_', cat.name)
+FROM category AS cat;
+```
+
+```sql
+SELECT YEAR(cat.last_update)
+FROM category AS cat;
+```
+
+```sql
+SELECT CAST('2026' AS YEAR) - YEAR(cat.last_update)
+FROM category AS cat;
+```
+
+📌 데이터 분석 관점 포인트:
+
+* 형변환은 **명시적으로**
+* 특히
+
+  * 날짜
+  * 숫자
+  * 문자열
+    혼용 시 지표 오류 빈번
+
+---
+
+## 📌 SQL 함수 (Function)
+
+### 문자열 함수
+
+```sql
+SELECT CONCAT(
+    UPPER(ct.Name), 
+    "(", ct.CountryCode, ")"
+)
+FROM city ct
+WHERE ct.CountryCode IN (
+    SELECT co.Code
+    FROM country co
+    WHERE LOWER(co.Continent) = 'asia'
+);
+```
+
+```sql
+SELECT co.Name, SUBSTRING(co.Name, 1, 3)
+FROM country co
+LIMIT 5;
+```
+
+```sql
+SELECT country.Name, LENGTH(country.Name)
+FROM country;
+```
+
+📌 포인트:
+
+* 함수는 **표현을 바꾸는 도구**
+* 분석에서는
+  → 가독성 개선, 그룹 기준 통일에 중요
+
+---
+
+## 📌 실습 문제 (practice.sql)
+
+### 🎯 문제 1
+
+**Action 장르 영화를 ‘한 번도’ 빌리지 않은 고객 찾기**
+
+#### 서브쿼리 방식
+
+```sql
+SELECT c.first_name, c.last_name
+FROM customer c
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM rental r
+    JOIN inventory i ON r.inventory_id = i.inventory_id
+    JOIN film_category fc ON i.film_id = fc.film_id
+    JOIN category cat ON fc.category_id = cat.category_id
+    WHERE r.customer_id = c.customer_id
+    AND cat.name = 'Action'
+);
+```
+
+---
+
+#### CTE 방식
+
+```sql
+WITH ActionCustomer AS (
+    SELECT DISTINCT r.customer_id
+    FROM rental r
+    JOIN inventory i ON r.inventory_id = i.inventory_id
+    JOIN film_category fc ON i.film_id = fc.film_id
+    JOIN category cat ON fc.category_id = cat.category_id
+    WHERE cat.name = 'Action'
+)
+SELECT c.first_name, c.last_name
+FROM customer c
+LEFT JOIN ActionCustomer ac
+ON c.customer_id = ac.customer_id
+WHERE ac.customer_id IS NULL;
+```
+
+📌 데이터 분석 관점 포인트:
+
+* **NOT EXISTS vs LEFT JOIN + IS NULL**
+* 마케팅 타겟 추출에서 매우 자주 쓰는 패턴
+* 핵심은
+
+  > “무엇을 제외할 것인가”를 먼저 정의
+---
+## 📌 단일행 함수 · 서브쿼리 실습
+---
+## 📌 단일행 함수 (Single-row Function)
+
+- **행별로 값 하나 → 값 하나**로 변환하는 함수
+- 문자열/숫자/날짜/NULL 처리 함수가 대표적
+
+---
+
+## [1] 문자열 함수
+
+### (1) CONCAT : 문자열 이어붙이기
+- 예: `Seoul (KOR)` 형태로 변환
+
+```sql
+SELECT CONCAT(UPPER(ct.`Name`), "(", ct.`CountryCode`, ")")
+FROM city ct
+WHERE ct.`CountryCode` IN (
+    SELECT co.`Code`
+    FROM country co
+    WHERE LOWER(co.`Continent`) = 'asia'
+);
+````
+
+데이터 분석 관점 포인트:
+
+* 표준화(대소문자 통일) + 라벨링(CONCAT)은
+  **리포트/시각화 단계에서 재가공 비용을 줄인다.**
+
+---
+
+### (2) SUBSTRING : 위치 기반 부분 추출
+
+```sql
+SELECT co.`Name`, SUBSTRING(co.`Name`, 1, 3)
+FROM country co
+LIMIT 5;
+```
+
+---
+
+### (3) LENGTH : 문자열 길이
+
+```sql
+SELECT country.`Name`, LENGTH(country.`Name`)
+FROM country;
+```
+
+---
+
+### (4) REPLACE : 문자열 치환
+
+```sql
+SELECT co.`Name`, REPLACE(co.`Name`, 'South', 'S.')
+FROM country co
+WHERE co.name LIKE "%South%";
+```
+
+데이터 분석 관점 포인트:
+
+* 치환은 “표기 통일”에 효과적이지만,
+  **원본 의미가 바뀔 수 있으니(예: South 포함 국가명)** 적용 범위를 조건으로 제한하는 습관이 중요하다.
+
+---
+
+## [2] 숫자형 함수
+
+### 산술 연산 예시 (인구밀도)
+
+```sql
+SELECT co.`Name`, co.`Population` / co.`SurfaceArea` AS 인구밀도
+FROM country co
+WHERE co.`Population` > 0;
+```
+
+데이터 분석 관점 포인트:
+
+* 인구밀도/객단가/전환율 같은 지표는
+  **분모(0/NULL) 처리 규칙**이 없으면 지표가 깨진다.
+* 아래처럼 `SurfaceArea > 0` 같은 방어 조건이 실무에서 필수.
+
+---
+
+### (1) 반올림/올림/내림/버림
+
+```sql
+SELECT
+    co.`Name`,
+    ROUND(co.`Population` / co.`SurfaceArea`, 2) AS 인구밀도,
+    CEIL(co.`Population` / co.`SurfaceArea`) AS 올림,
+    FLOOR(co.`Population` / co.`SurfaceArea`) AS 내림,
+    TRUNCATE(co.`Population` / co.`SurfaceArea`, 2) AS 버림
+FROM country co
+WHERE co.`SurfaceArea` > 0;
+```
+
+데이터 분석 관점 포인트:
+
+* `ROUND` vs `TRUNCATE`는 결과 해석이 달라진다.
+
+  * ROUND: 보기 좋지만 값이 바뀜(정책/과금 지표에 영향 가능)
+  * TRUNCATE: 값 보수적(컷팅) — 금융/정책 지표에 더 자주 사용
+
+---
+
+## [3] 날짜형 함수
+
+### (1) 현재 시간
+
+```sql
+SELECT NOW(), CURDATE(), CURTIME();
+```
+
+---
+
+### (2) 날짜 일부 추출
+
+```sql
+SELECT WEEKDAY(NOW());  -- 요일
+SELECT YEAR(NOW());
+SELECT YEARWEEK(NOW());
+```
+
+---
+
+### (3) 날짜 포맷
+
+```sql
+SELECT DATE_FORMAT(NOW(), '%M,%D');
+```
+
+---
+
+### (4) 날짜 연산
+
+```sql
+SELECT NOW() + 10;  -- 의도: 10일 뒤, 실제: 초 단위 연산(10초 뒤)
+SELECT DATE_ADD(NOW(), INTERVAL 10 DAY);
+SELECT DATE_SUB(NOW(), INTERVAL 3 HOUR);
+```
+
+데이터 분석 관점 포인트:
+
+* `NOW() + 10` 처럼 “의도와 실제 동작이 다른 연산”이 지표 오류를 만든다.
+* 날짜 연산은 **DATE_ADD/DATE_SUB 같은 함수로 명시적으로** 처리하는 게 안전하다.
+
+---
+
+### 예시: 반납일-대여일 간격(일수)
+
+```sql
+USE sakila;
+DESCRIBE rental;
+
+SELECT AVG(DATEDIFF(r.return_date, r.rental_date))
+FROM rental r;
+```
+
+---
+
+### 종강일까지 남은 일수
+
+```sql
+SELECT DATEDIFF('2026-03-27', CURDATE());
+```
+
+---
+
+## [4] NULL 관련 함수
+
+```sql
+USE world;
+SELECT DATABASE();
+DESCRIBE country;
+
+SELECT COUNT(*)
+FROM country co
+WHERE `GNP` IS NULL;
+
+SELECT COUNT(*)
+FROM country co
+WHERE `HeadOfState` IS NULL;
+```
+
+---
+
+### (1) COALESCE : 결측이 아닌 첫 번째 값 반환
+
+```sql
+SELECT 
+    co.`Name`, co.`GNPOld`, co.`GNP`,
+    COALESCE(co.`GNPOld`, co.`GNP`, 0) AS 최종GNP
+FROM country co;
+```
+
+데이터 분석 관점 포인트:
+* country 테이블에서 과거 GNP(GNPOld)가 없으면 최신 GNP(GNP)를 사용하고, 둘 다 없으면 0으로 표시합니다.
+* 결측 대체값(0/평균/중앙값/제외)은 지표 정의의 일부다.
+* `COALESCE(..., 0)`는 “0으로 간주” 규칙이므로,
+  **분석 목적에 맞는지** 확인이 필요하다.
+
+---
+
+### (2) IFNULL : 단일 값 결측 대체
+
+```sql
+SELECT
+    co.`Name`, co.`HeadOfState`,
+    IFNULL(co.`HeadOfState`, '정보없음')
+FROM country co
+WHERE co.`Continent` = 'Europe';
+```
+
+---
+
+### (3) NULLIF : 의도적으로 NULL 발생
+
+```sql
+SELECT cl.`Language`, cl.`Percentage`, NULLIF(cl.`Percentage`, 0.0)
+FROM countrylanguage cl
+WHERE cl.`Language` = 'English';
+```
+
+데이터 분석 관점 포인트:
+
+* `NULLIF(x, 0)`는
+  “0을 결측으로 간주해 제외/무효 처리”할 때 유용.
+* 평균/비율 계산에서 0을 제거하고 싶을 때 자주 사용한다.
+
+---
+
+## 📌 서브쿼리 실무형 문제 풀이 (sakila)
+
+```sql
+USE sakila;
+SELECT DATABASE();
+SHOW TABLES;
+```
+
+---
+
+## [문제 1] 평균보다 비싼 영화 찾기 (가격 정책 점검)
+
+```sql
+SELECT
+    f.title,
+    f.rental_rate
+FROM film f
+WHERE f.rental_rate > (
+    SELECT AVG(f.rental_rate)
+    FROM film f
+);
+```
+
+데이터 분석 관점 포인트:
+
+* 서브쿼리는 “평균이라는 기준값”을 만든다.
+* 비교 기준(전체 평균 vs 장르 평균 vs 등급 평균)을 바꾸면 정책 결론도 바뀐다.
+
+---
+
+## [문제 2] 고객 5번 결제 + 전체 평균 결제액 같이 보기
+
+```sql
+SELECT
+    p.payment_id,
+    p.amount,
+    (
+        SELECT AVG(p.amount)
+        FROM payment p
+    ) AS 전체평균결제액
+FROM payment p
+WHERE customer_id = 5;
+```
+
+데이터 분석 관점 포인트:
+
+* “각 행에 전체 평균을 붙이는 패턴”은
+  **개별 vs 전체 비교 리포트**에서 매우 흔하다.
+
+---
+
+## [문제 3] Action 카테고리 영화의 재고(inventory) 조회
+
+```sql
+SELECT *
+FROM inventory i
+WHERE i.film_id IN (
+    SELECT f.film_id
+    FROM film f
+    WHERE f.film_id IN (
+        SELECT fc.film_id
+        FROM film_category fc
+        JOIN category c
+            ON fc.category_id = c.category_id
+        WHERE c.name = 'action'
+    )
+);
+```
+
+데이터 분석 관점 포인트:
+
+* `IN` 중첩이 깊어질수록 가독성이 급감한다.
+* 이런 구조는 나중에 CTE로 단계 분해하면 유지보수성이 좋아진다.
+
+---
+
+## [문제 4] 캐나다 거주하지 않는 고객 추출
+
+```sql
+SELECT
+    cu.first_name,
+    cu.last_name
+FROM customer cu
+WHERE cu.address_id NOT IN (
+    SELECT a.address_id
+    FROM address a
+    WHERE a.city_id IN (
+        SELECT c.city_id
+        FROM city c
+        JOIN country co
+            ON c.country_id = co.country_id
+        WHERE co.country = 'Canada'
+    )
+);
+```
+
+데이터 분석 관점 포인트:
+
+* “제외 조건(NOT IN)”은
+  **NULL이 섞이면 결과가 꼬일 수 있다**는 점이 실무 리스크다.
+* (추후 학습 포인트) `NOT EXISTS`로 바꾸면 더 안전한 경우가 많다.
+
+---
+
+## [문제 5] 고객별 결제 합/평균 요약 리포트 만들기
+
+```sql
+SELECT
+    cu.first_name,
+    cu.last_name,
+    d.합,
+    d.평균
+FROM customer cu
+JOIN (
+    SELECT
+        p.customer_id,
+        SUM(p.amount) AS 합,
+        AVG(p.amount) AS 평균
+    FROM payment p
+    GROUP BY p.customer_id
+) AS d
+ON cu.customer_id = d.customer_id;
+```
+데이터 분석 관점 포인트:
+
+* **집계(고객 단위) → 의미 단위 고정 → JOIN**의 정석 패턴.
+* 분석에서 가장 중요한 건 “고객 단위 리포트인데 행이 불어나지 않게” 만드는 것.
+---
+## 🎯 오늘의 핵심 정리
+
+* CTE는 SQL 실력을 보여주는 문법이 아니라
+  **분석 사고를 구조로 보여주는 도구**다.
+* 데이터 타입과 함수는
+  → 결과의 정확도를 보장하는 **기초 설계**
+* 실무 SQL은
+
+  * 짧은 코드보다
+  * **읽히는 코드가 더 중요**
+* 좋은 SQL은
+  **결과보다 ‘왜 이렇게 계산했는지’가 먼저 보인다.**
+* 단일행 함수는 데이터 가공이 아니라
+  **분석 가능한 형태로 표준화하는 도구**다.
+* 숫자/날짜/NULL 함수는
+  **지표 오류(분모 0, 결측치, 날짜 연산 오해)를 막는 안전장치**다.
+* 서브쿼리는 JOIN과 달리
+  **기준을 먼저 만들고 적용하는 도구**다.
+* 실무 쿼리는
+  “짧은 쿼리”보다 **의도가 잘 보이는 구조(기준 → 적용 → 검증)**가 더 중요하다.
