@@ -147,3 +147,107 @@ SELECT
     r.rental_id, 
     DATEDIFF(r.return_date,r.rental_date)
 FROM rental r
+
+-- 분석 전 데이터 품질 점검
+-- 실무에서 분석이나 리포트를 시작하기 전에
+-- 가장 먼저 확인해야 하는 것은 필수 지표가 누락된 데이터입니다.
+ 
+-- country 테이블에서 기대 수명(LifeExpectancy) 또는 경제 지표(GNP)가 누락된 국가들을 찾아
+-- 해당 국가와 대륙 정보를 함께 확인해 보세요.
+SELECT
+    co.`Name`,
+    co.`Continent`,
+    co.`LifeExpectancy`,
+    co.`GNP`
+FROM country co
+WHERE 
+    co.`LifeExpectancy` is NULL OR
+    co.`GNP` is null;
+
+-- 결측치 보정 로직 적용하기
+-- 기대 수명 데이터가 없는 국가가 포함된 상태로는
+-- 대륙별 평균, 비교 분석이 왜곡될 수 있습니다.
+ 
+-- 기대 수명(LifeExpectancy)이 NULL인 경우,
+-- 해당 국가가 속한 대륙 평균 기대 수명으로 보정한 값을 계산하고
+-- 원래 값과 대체 값을 함께 비교할 수 있도록 조회해 보세요.
+SELECT
+    co.`Name`,
+    co.`Continent`,
+    co.`LifeExpectancy`,
+    c2.avg_le
+FROM country co
+JOIN(
+    SELECT `Continent`, AVG(`LifeExpectancy`) avg_le
+    from country
+    GROUP BY `Continent`
+) c2
+on co.`Continent` = c2.`Continent`;
+
+-- 범주형 데이터 정규화
+-- 실제 데이터에서는
+-- 같은 의미를 가지는 값이 여러 표현으로 저장되는 경우가 많습니다.
+ 
+-- GovernmentForm 컬럼에서
+-- Republic
+-- Federal Republic
+-- Islamic Republic
+-- 처럼 표현이 다른 값을 분석 기준에서는 하나의 표준 카테고리(Republic) 로 묶어야 합니다.
+ 
+-- 'Republic'이라는 단어가 포함된 국가는 모두 Republic으로 통일하여
+-- 정규화된 정부 형태 컬럼을 만들어 보세요.
+SELECT 
+    co.`Name`,
+    co.`GovernmentForm`,
+    CASE 
+        WHEN co.`GovernmentForm` like '%Republic%' THEN 'Republic' 
+        ELSE co.`GovernmentForm`  
+    END n_governmentform
+FROM country co;
+
+-- 분석용 파생 지표 생성 – 인구 밀도
+-- 단순 인구 수만으로는 국가 간 비교가 어렵습니다.
+-- 실무에서는 인구를 면적 기준으로 보정한 지표를 자주 사용합니다.
+ 
+-- Population과 SurfaceArea를 활용하여
+-- 국가별 인구 밀도(1km²당 인구 수) 를 계산해 보세요.
+ 
+-- 단, 계산이 의미 없는 경우(면적 또는 인구가 0)는 제외합니다.
+SELECT
+    co.`Name`,
+    co.`Population`,
+    co.`SurfaceArea`,
+    (co.`Population`/co.`SurfaceArea`) 인구밀도
+FROM country co
+WHERE co.`Population` >0 and co.`SurfaceArea` > 0;
+
+
+-- 경제 수준 비교를 위한 지표 가공
+-- 총 GNP는 국가 규모의 영향을 크게 받기 때문에
+-- 국가 간 생활 수준 비교에는 적합하지 않습니다.
+-- GNP와 Population을 활용해
+-- 국가별 1인당 GNP를 계산하고,
+-- 국가명과 대륙 기준으로 비교 가능한 형태로 조회해 보세요.
+-- *GNP는 백만달러 단위 입니다.
+SELECT
+    co.`Name`,
+    co.`Population`,
+    co.`GNP`,
+    (co.`GNP`/co.`Population`)*1000000 1인당GNP
+FROM country co
+WHERE co.`Population` > 0 and co.`GNP` > 0
+ORDER BY 1인당GNP DESC;
+
+-- 수도 집중도 지표 계산
+-- 국가 전체 인구 대비 수도 인구 비율은
+-- 행정·경제·인구 집중도를 판단하는 데 자주 사용되는 지표입니다.
+ 
+-- country 테이블의 전체 인구와 city 테이블의 수도 인구를 연결하여,
+-- 각 국가의 수도 인구 집중 비율(%) 을 계산해 보세요.
+SELECT
+    co.`Name`,
+    co.`Capital`,
+    concat(CAST((ct.`Population`/co.`Population`)*100 as char),"%") 수도인구밀도
+FROM country co
+JOIN city ct on co.`Capital` = ct.`ID`
+WHERE co.`Population` > 0;
