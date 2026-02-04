@@ -1739,6 +1739,118 @@ ON cu.customer_id = d.customer_id;
 * **집계(고객 단위) → 의미 단위 고정 → JOIN**의 정석 패턴.
 * 분석에서 가장 중요한 건 “고객 단위 리포트인데 행이 불어나지 않게” 만드는 것.
 ---
+## 📌 조건 분기와 전처리
+
+데이터 분석에서 조건 분기는  
+**값을 해석 가능한 범주로 바꾸는 전처리 단계**에서 매우 자주 사용된다.  
+특히 KPI 구간화, 등급 분류, 세그먼트 정의에서 핵심 역할을 한다.
+
+---
+
+### [1] IF 함수
+
+- 단일 조건 분기 함수
+- 조건에 따라 **두 가지 경우 중 하나를 반드시 반환**
+- 구조  
+  ```sql
+  IF(조건, 참일 때 값, 거짓일 때 값)
+````
+
+```sql
+USE world;
+
+SELECT 
+    co.`Name` AS 국가명,
+    co.`LifeExpectancy` AS 기대수명,
+    IF(co.`LifeExpectancy` >= 80, '고령사회', '해당 없음') AS 분류
+FROM country AS co
+WHERE co.`Continent` = 'Asia';
+```
+
+**특징**
+
+* 단순한 이분 분류에 적합
+* 다중 조건 처리 불가
+
+📌 데이터 분석 관점 포인트:
+
+* IF는 **“기준 이상 / 미만”** 같은 단순 기준을 빠르게 만들 때 유용
+* 조건이 늘어나기 시작하면 유지보수가 급격히 나빠진다
+
+---
+
+### [2] CASE 표현식
+
+* 다중 조건 분기 가능
+* Python의 `if / elif / else`와 동일한 사고 방식
+* 실무에서 **IF보다 훨씬 자주 사용**
+
+**기본 구조**
+
+```sql
+CASE
+    WHEN 조건1 THEN 결과1
+    WHEN 조건2 THEN 결과2
+    ELSE 기본값
+END
+```
+
+```sql
+SELECT 
+    co.`Name` AS 국가명,
+    co.`Continent` AS 대륙명,
+    CASE 
+        WHEN co.`Continent` = 'Asia' THEN '아시아권'
+        WHEN co.`Continent` = 'Europe' THEN '유럽권'
+        ELSE '기타'
+    END AS 권역
+FROM country AS co;
+```
+
+---
+
+### [3] ELSE가 없는 CASE의 동작
+
+```sql
+SELECT 
+    co.`Name` AS 국가명,
+    co.`Continent` AS 대륙명,
+    CASE 
+        WHEN co.`Continent` = 'Asia' THEN '아시아권'
+        WHEN co.`Continent` = 'Europe' THEN '유럽권'
+        -- ELSE가 없으면 나머지는 NULL
+    END AS 권역
+FROM country AS co;
+```
+
+**동작 원리**
+
+* 어떤 WHEN 조건에도 걸리지 않으면 → `NULL` 반환
+
+📌 데이터 분석 관점 포인트:
+
+* ELSE가 없는 CASE는
+  **“의도적으로 분류되지 않은 값”을 NULL로 남길 때** 사용
+* 하지만 리포트·대시보드용 데이터에서는
+  **의도치 않은 NULL 확산의 원인**이 되기 쉬움
+
+---
+
+### 📌 조건 분기 실무 핵심 요약
+
+* IF
+  → 단순 이분 분류
+* CASE
+  → 다중 분류, 세그먼트 정의, KPI 구간화
+* 분석에서는
+
+  * “값을 계산하는 것”보다
+  * **“값을 해석 가능한 범주로 바꾸는 것”**이 더 중요할 때가 많다
+
+📌
+조건 분기 문법은 단순하지만,
+**분류 기준이 곧 분석의 가설**이 된다.
+---
 ## 🎯 오늘의 핵심 정리
 
 * CTE는 SQL 실력을 보여주는 문법이 아니라
@@ -1760,7 +1872,7 @@ ON cu.customer_id = d.customer_id;
 * 실무 쿼리는
   “짧은 쿼리”보다 **의도가 잘 보이는 구조(기준 → 적용 → 검증)**가 더 중요하다.
 ---
-## 📅 2026-02-03
+## 📅 2026-02-04
 
 ## 📌 윈도우 함수 (Window Function)
 
